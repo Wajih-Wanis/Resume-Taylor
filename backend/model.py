@@ -11,7 +11,7 @@ class Model(ABC):
 
 
 
-class ossModel(Model):
+class OssModel(Model):
 
     def __init__(self,model="llama3"):
         self.model = Ollama(model=model) 
@@ -19,3 +19,12 @@ class ossModel(Model):
 
     def _run(self,input) -> str :
         return self.model.invoke(input)
+
+
+class Openai(Model):
+
+    def __init__(self):
+        pass 
+
+    def _run(self,input) -> str:
+        pass 
