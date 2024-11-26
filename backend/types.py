@@ -2,22 +2,23 @@ from pydantic import BaseModel
 
 
 class Resume(BaseModel):
-    full_name : str
-    phone_number : int
-    location : str
-    socials : dict[str]
-    profile : str 
-    skill : list[str]
-    eductation : dict[str]
-    experience : dict[str] 
-    project : dict[str]
-    hobbies : list[str]
-    languages : list[str]
+    full_name : str | None
+    phone_number : int | None
+    location : str | None
+    socials : dict[str,str] | None
+    profile : str | None
+    skills : list[str] | None
+    eductation : dict[str,str] | None
+    experience : dict[str,str] | None
+    project : dict[str,str] | None
+    hobbies : list[str] | None
+    languages : list[str] | None
 
 
 
 class JobDescription(BaseModel):
-    job_poster : str 
-    required_skills : list[str] 
-    tasks : list[str] 
-
+    job_poster : str | None
+    job_title : str | None
+    required_skills : list[str] | None
+    tasks : list[str] | None
+    profile : str | None

@@ -134,3 +134,24 @@ class ResumeGenerator:
         doc.save(filepath)
         
         return filepath
+    
+    def _format_resume_content(self, resume: Resume) -> str:
+        return f"""
+        {resume.full_name}
+        {resume.phone_number} | {resume.location}
+
+        PROFILE
+        {resume.profile}
+
+        SKILLS
+        {', '.join(resume.skills or [])}
+
+        EDUCATION
+        {resume.eductation}
+
+        EXPERIENCE
+        {resume.experience}
+
+        PROJECTS
+        {resume.project}
+        """
