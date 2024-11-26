@@ -1,10 +1,14 @@
 from backend.types import JobDescription
 from backend.model import Model
 from bs4 import BeautifulSoup
-import requests
 import re 
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.docstore.document import Document
+from langchain.chains import LLMChain
+from langchain.prompts import PromptTemplate
+import spacy
+import numpy as np
 from seleniumbase import Driver
-from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -38,6 +42,55 @@ class JobParser:
         self.job_link = job_link 
         self.model = model 
         self.driver = Driver(uc=True,headless=True)
+        try:
+            self.nlp = spacy.load("en_core_web_sm")
+        except OSError:
+            logging.warning("spaCy model not found. Please download 'en_core_web_sm'")
+            self.nlp = None
+        
+        # Setup Langchain text splitter
+        self.text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=2000,
+            chunk_overlap=200,
+            length_function=len,
+            separators=["\n\n", "\n", " ", ""]
+        )
+        
+        # Setup Langchain LLM Chain for parsing
+        self._setup_llm_chain()
+
+
+
+    def _setup_llm_chain(self) -> LLMChain:
+        prompt_template = """
+        Extract structured job description details from the following text:
+
+        Job Description Text:
+        {job_text}
+
+        Extract:
+        - Job Poster (Company Name)
+        - Job Title
+        - Required Skills
+        - Key Tasks
+        - Job Profile
+
+        Output STRICTLY as JSON:
+        {{
+            "job_poster": "string",
+            "job_title": "string",
+            "required_skills": ["skill1", "skill2"],
+            "tasks": ["task1", "task2"],
+            "profile": "string"
+        }}
+        """
+        
+        prompt = PromptTemplate(
+            template=prompt_template,
+            input_variables=["job_text"]
+        )
+        
+        self.job_parsing_chain = LLMChain(llm=self.model, prompt=prompt)
 
 
     def scrape_job(self) -> list[str]:
@@ -80,38 +133,30 @@ class JobParser:
                 self.driver.quit()
                 self.driver = None
 
-    def _split_text_into_chunks(self, text: str, max_chars: int = 8092, overlap_percent: float = 0.1) -> list[str]:
-        # Calculate overlap size
-        overlap_chars = int(max_chars * overlap_percent)
+    def _semantic_chunk_filter(self, chunks: list[str]) -> list[str]:
+        if not self.nlp:
+            return chunks  # Return all chunks if spaCy not available
         
-        # Split text into words
-        words = text.split()
+        # Define key semantic concepts for job description
+        key_concepts = [
+            "skills", "requirements", "responsibilities", 
+            "tasks", "qualifications", "job description"
+        ]
         
-        chunks = []
-        start = 0
+        key_docs = [self.nlp(concept) for concept in key_concepts]
         
-        while start < len(words):
-            # Calculate end index
-            end = start
-            current_chunk = []
-            current_length = 0
+        filtered_chunks = []
+        for chunk in chunks:
+            chunk_doc = self.nlp(chunk)
             
-            # Build chunk without cutting words
-            while end < len(words) and current_length < max_chars:
-                word = words[end]
-                if current_length + len(word) + 1 > max_chars:
-                    break
-                current_chunk.append(word)
-                current_length += len(word) + 1
-                end += 1
+            # Calculate semantic similarity with key concepts
+            similarities = [chunk_doc.similarity(concept_doc) for concept_doc in key_docs]
             
-            # Add chunk
-            chunks.append(' '.join(current_chunk))
-            
-            # Move start index with overlap
-            start = end - int(overlap_chars / 5)  # Approximate word-level overlap
-        logging.info(f"Split chunks {chunks}")
-        return chunks
+            # If any similarity is high, keep the chunk
+            if max(similarities) > 0.5:
+                filtered_chunks.append(chunk)
+        
+        return filtered_chunks
 
     def _job_parsing_prompt(self, chunk: str) -> str:
         prompt = f"""
