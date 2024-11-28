@@ -2,6 +2,8 @@ from backend.model import Model
 from backend.types import Resume,JobDescription
 import pypdf
 import docx 
+from typing import Union
+import json
 import os 
 import logging
 from datetime import datetime
@@ -13,7 +15,7 @@ if not os.path.exists('logs'):
 
 # Create a unique filename with date and time
 current_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-log_filename = os.path.join('logs', f"log_job_parser_{current_time}.log")
+log_filename = os.path.join('logs', f"log_{current_time}.log")
 
 # Configure logging to write to the new log file with timestamps
 logging.basicConfig(
@@ -30,31 +32,25 @@ class ResumeGenerator:
 
     def __init__(self,model:Model):
         self.model = model 
+        logging.info("Resume generation class instantiated")
 
     def _resume_generation_prompt(self, base_resume: Resume, job_description: JobDescription) -> str:
-        """
-        Generate a prompt to customize the resume for a specific job description.
-        
-        :param base_resume: Original resume to be tailored
-        :param job_description: Job description to align the resume with
-        :return: A detailed prompt for resume customization
-        """
         # Construct a detailed prompt that focuses on aligning the resume with job requirements
         prompt = f"""
         Given the following base resume and job description, generate a tailored resume:
 
         Base Resume:
-        - Name: {base_resume.full_name}
+        - Name: {base_resume.full_name or 'Not specified'}
         - Current Profile: {base_resume.profile or 'Not specified'}
         - Skills: {', '.join(base_resume.skills or [])}
-        - Education: {base_resume.eductation}
+        - Education: {base_resume.education}
         - Experience: {base_resume.experience}
-        - Projects: {base_resume.project}
+        - Projects: {base_resume.projects or 'Not specified'}
 
         Job Description:
-        - Job Title: {job_description.job_title}
+        - Job Title: {job_description.job_title or 'Not specified'}
         - Required Skills: {', '.join(job_description.required_skills or [])}
-        - Job Profile: {job_description.profile}
+        - Job Profile: {job_description.profile or 'Not specified'}
         - Key Tasks: {', '.join(job_description.tasks or [])}
 
         Instructions:
@@ -69,13 +65,66 @@ class ResumeGenerator:
         """
         return prompt
 
-    def resume_creation(self,input:str) -> Resume:
+
+    def resume_creation(self, input: str) -> Union[Resume, None]:
         try:
             # Use the model to parse the input into a Resume object
-            resume = self.model.parse_json_to_model(input, Resume)
-            return resume
+            llm_generated_resume = self.model._run(input)
+            logging.info(f"Resume generated llm blueprint {llm_generated_resume}")
+            # Extract JSON from response (in case LLM adds additional text)
+            try:
+                # Find the first occurrence of '{' and the last occurrence of '}'
+                start_idx = llm_generated_resume.find('{')
+                end_idx = llm_generated_resume.rindex('}') + 1
+                json_str = llm_generated_resume[start_idx:end_idx]
+                
+                # Parse JSON response
+                resume_dict = json.loads(json_str)
+                logging.info(f"Resume dict: {resume_dict}")
+                
+                # Preprocess fields to ensure they are compatible with the Resume model
+                # Normalize phone_number
+                if isinstance(resume_dict.get("phone_number"), str):
+                    resume_dict["phone_number"] = int(
+                        "".join(filter(str.isdigit, resume_dict["phone_number"]))
+                    )
+                
+                # Ensure optional fields are present
+                for field in Resume.__annotations__.keys():
+                    if field not in resume_dict:
+                        resume_dict[field] = None  # Default to None for missing fields
+
+                # Preprocess education entries
+                if isinstance(resume_dict.get("education"), list):
+                    resume_dict["education"] = [
+                        {
+                            key: (value if isinstance(value, str) and value else "")
+                            for key, value in entry.items()
+                        }
+                        for entry in resume_dict["education"]
+                    ]
+
+                # Handle optional list fields
+                resume_dict["hobbies"] = resume_dict.get("hobbies") or []
+                resume_dict["languages"] = resume_dict.get("languages") or []
+
+                # Create Resume object
+                logging.info(f"Processed Resume dict for validation: {resume_dict}")
+                return Resume(**resume_dict)
+
+            except json.JSONDecodeError as e:
+                logging.error(f"Error parsing LLM response as JSON: {e}")
+                logging.error(f"LLM response: {llm_generated_resume}")
+                return None
+            
+            except ValueError as e:
+                logging.error(f"Error creating Resume object: {e}")
+                return None
+
         except Exception as e:
-            raise ValueError(f"Failed to create resume: {str(e)}")
+            logging.error(f"Error processing resume: {e}")
+            return None
+
         
 
     def save_pdf_resume(self,resume:Resume)->str:

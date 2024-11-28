@@ -4,7 +4,6 @@ from bs4 import BeautifulSoup
 import re 
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.docstore.document import Document
-from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
 import spacy
 import numpy as np
@@ -56,41 +55,7 @@ class JobParser:
             separators=["\n\n", "\n", " ", ""]
         )
         
-        # Setup Langchain LLM Chain for parsing
-        self._setup_llm_chain()
 
-
-
-    def _setup_llm_chain(self) -> LLMChain:
-        prompt_template = """
-        Extract structured job description details from the following text:
-
-        Job Description Text:
-        {job_text}
-
-        Extract:
-        - Job Poster (Company Name)
-        - Job Title
-        - Required Skills
-        - Key Tasks
-        - Job Profile
-
-        Output STRICTLY as JSON:
-        {{
-            "job_poster": "string",
-            "job_title": "string",
-            "required_skills": ["skill1", "skill2"],
-            "tasks": ["task1", "task2"],
-            "profile": "string"
-        }}
-        """
-        
-        prompt = PromptTemplate(
-            template=prompt_template,
-            input_variables=["job_text"]
-        )
-        
-        self.job_parsing_chain = LLMChain(llm=self.model, prompt=prompt)
 
 
     def scrape_job(self) -> list[str]:
@@ -123,7 +88,7 @@ class JobParser:
             text = re.sub(r'\s+', ' ', text).strip()
             logging.info(f"Clean page text {text}")
             # Split into chunks with 25% overlap
-            return self._split_text_into_chunks(text)
+            return self.text_splitter.split_text(text)
         except Exception as e:
             logging.info(f"Error scraping job page: {e}")
             return []
@@ -204,7 +169,7 @@ class JobParser:
                 
                 # Use model to parse job description chunk
                 llm_response = self.model._run(prompt)
-                
+                logging.info(f"llm response for job parsing chunk {chunk}")
                 # Extract JSON from response
                 try:
                     # Find the first occurrence of '{' and the last occurrence of '}'

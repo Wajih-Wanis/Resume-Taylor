@@ -1,18 +1,19 @@
 from pydantic import BaseModel
+from typing import Optional, List, Dict
 
 
 class Resume(BaseModel):
-    full_name : str | None
-    phone_number : int | None
-    location : str | None
-    socials : dict[str,str] | None
-    profile : str | None
-    skills : list[str] | None
-    eductation : dict[str,str] | None
-    experience : dict[str,str] | None
-    project : dict[str,str] | None
-    hobbies : list[str] | None
-    languages : list[str] | None
+    full_name: Optional[str]
+    phone_number: Optional[int]
+    location: Optional[str]
+    socials: Optional[Dict[str, str]]  
+    profile: Optional[str]
+    skills: Optional[List[str]]  
+    education: Optional[List[Dict[str, str]]] 
+    experience: Optional[List[Dict[str, str]]]  
+    projects: Optional[Dict[str, str]]  
+    hobbies: Optional[List[str]]  
+    languages: Optional[List[str]]
 
 
 

@@ -14,7 +14,7 @@ class Model(ABC):
 class OssModel(Model):
 
     def __init__(self,model="llama3"):
-        self.model = Ollama(model=model) 
+        self.model = Ollama(model=model,verbose=False) 
     
 
     def _run(self,input) -> str :
