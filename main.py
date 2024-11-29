@@ -109,14 +109,16 @@ def resume_parsing_section() -> None:
         edited_resume = {}
         parsed_resume = st.session_state['parsed_resume']
 
-        for field, value in parsed_resume.model_dump().items():
+        for i, (field, value) in enumerate(parsed_resume.model_dump().items()):
             if value is not None:
                 if isinstance(value, list):
                     edited_resume[field] = st.multiselect(
                         f"Edit {field.replace('_', ' ').title()}",
                         options=value,
-                        default=value
+                        default=value,
+                        key=f"resume_parsing_{field}_{i}"
                     )
+
                 elif isinstance(value, dict):
                     st.write(f"Edit {field.replace('_', ' ').title()}:")
                     edited_dict = {}
@@ -181,14 +183,16 @@ def job_description_parsing_section() -> None:
         st.subheader("Edit Job Description")
 
         edited_job_desc = {}
-        for field, value in job_description.model_dump().items():
+        for i, (field, value) in enumerate(job_description.model_dump().items()):
             if value is not None:
                 if isinstance(value, list):
                     edited_job_desc[field] = st.multiselect(
                         f"Edit {field.replace('_', ' ').title()}",
                         options=value,
-                        default=value
+                        default=value,
+                        key=f"job_desc_parsing_{field}_{i}"
                     )
+
                 else:
                     edited_job_desc[field] = st.text_input(
                         f"Edit {field.replace('_', ' ').title()}",
@@ -224,33 +228,36 @@ def resume_generation_section() -> None:
             #   generated_resume = st.session_state['generated_resume']
         logging.info(generated_resume)
         # Display generated resume for final editing
-        st.subheader("Generated Resume Preview")
-        print(generated_resume)
-        final_resume_edit = {}
-        for field, value in generated_resume.model_dump().items():
-            if value is not None:
-                if isinstance(value, list):
-                    final_resume_edit[field] = st.multiselect(
-                        f"Edit {field.replace('_', ' ').title()}",
-                        options=value,
-                        default=value
-                    )
-                elif isinstance(value, dict):
-                    st.write(f"Edit {field.replace('_', ' ').title()}:")
-                    edited_dict = {}
-                    for k, v in value.items():
-                        edited_dict[k] = st.text_input(f"{k}", v)
-                    final_resume_edit[field] = edited_dict
-                else:
-                    final_resume_edit[field] = st.text_input(
-                        f"Edit {field.replace('_', ' ').title()}",
-                        value
-                    )
+        #st.subheader("Generated Resume Preview")
+        #print(generated_resume)
+        #final_resume_edit = {}
+        #for i, (field, value) in enumerate(generated_resume.model_dump().items()):
+        #    if value is not None:
+        #        if isinstance(value, list):
+        #            final_resume_edit[field] = st.multiselect(
+        #                f"Edit {field.replace('_', ' ').title()}",
+        #                options=value,
+        #                default=value,
+        #                key=f"resume_generation_{field}_{i}"
+        #            )
 
+        #        elif isinstance(value, dict):
+        #            st.write(f"Edit {field.replace('_', ' ').title()}:")
+        #            edited_dict = {}
+        #            for k, v in value.items():
+        #                edited_dict[k] = st.text_input(f"{k}", v, key=f"resume_generation_{field}_{k}")
+        #            final_resume_edit[field] = edited_dict
+        #        else:
+        #            final_resume_edit[field] = st.text_input(
+        #                f"Edit {field.replace('_', ' ').title()}",
+        #                value
+        #            )
+           
         # Update final resume
-        final_resume = Resume(**final_resume_edit)
+        #final_resume = Resume(**final_resume_edit)
+        final_resume = generated_resume
         st.session_state['generated_resume'] = final_resume
-
+        logging.info(f"final generated resume {final_resume}")
         # Save options
         save_col1, save_col2 = st.columns(2)
 
