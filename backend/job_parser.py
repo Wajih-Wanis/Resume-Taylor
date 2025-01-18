@@ -18,15 +18,12 @@ import logging
 from datetime import datetime
 
 
-# Create the 'logs' directory if it doesn't exist
 if not os.path.exists('logs'):
     os.makedirs('logs')
 
-# Create a unique filename with date and time
 current_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 log_filename = os.path.join('logs', f"log_job_parser_{current_time}.log")
 
-# Configure logging to write to the new log file with timestamps
 logging.basicConfig(
     level=logging.INFO,
     filename=log_filename,
